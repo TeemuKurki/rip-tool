@@ -4,6 +4,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 )
 
 var rootCmd = &cobra.Command{
@@ -12,6 +13,7 @@ var rootCmd = &cobra.Command{
 }
 
 func Execute() {
+	doc.GenMarkdownTree(rootCmd, "./docs")
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

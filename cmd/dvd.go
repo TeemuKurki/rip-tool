@@ -18,14 +18,19 @@ func dvdPrecheck() []error {
 	return utils.RemoveNil(errors)
 }
 
-var dvdOpts = common.DefaultOptions()
+var dvdOpts = common.Options{}
 
 var dvdCmd = &cobra.Command{
-	Use:   "dvd <title>",
-	Short: "Rip DVD",
-	Args:  cobra.ExactArgs(1),
+	Use:       "dvd <title>",
+	Short:     "Rip DVD",
+	Args:      cobra.MaximumNArgs(1),
+	ValidArgs: []string{"title"},
 	RunE: func(cmd *cobra.Command, args []string) error {
-		title := args[0]
+
+		title := ""
+		if len(args) > 0 {
+			title = args[0]
+		}
 		precheckErrors := dvdPrecheck()
 		if len(precheckErrors) > 0 {
 			for _, err := range precheckErrors {
@@ -43,22 +48,22 @@ func init() {
 
 	f := dvdCmd.Flags()
 	f.BoolVar(&dvdOpts.Show, "show", false, "TV show mode")
-	f.StringVar(&dvdOpts.DiskPath, "disk-path", dvdOpts.DiskPath, "Disk path")
-	f.IntVar(&dvdOpts.Season, "season", dvdOpts.Season, "Season number")
-	f.IntVar(&dvdOpts.Disk, "disk", dvdOpts.Disk, "Disk number")
-	f.IntVar(&dvdOpts.MinLength, "min-length", dvdOpts.MinLength, "Min track length (minutes)")
-	f.IntVar(&dvdOpts.MaxLength, "max-length", dvdOpts.MaxLength, "Max track length (0 = disabled)")
-	f.StringVar(&dvdOpts.AudioCodec, "audio-codec", dvdOpts.AudioCodec, "Audio codec")
-	f.StringVar(&dvdOpts.VideoEncodingParams, "video-encoding-params", dvdOpts.VideoEncodingParams, "FFmpeg video params")
-	f.IntVar(&dvdOpts.AudioTrack, "audio-track", dvdOpts.AudioTrack, "Select single audio track for output")
-	f.StringVar(&dvdOpts.AudioLang, "default-audio-lang", dvdOpts.AudioLang, "Set default audio track by language")
+	f.StringVar(&dvdOpts.DiskPath, "disk-path", "/dev/sr0", "Disk path")
+	f.IntVar(&dvdOpts.Season, "season", 1, "Season number")
+	f.IntVar(&dvdOpts.Disk, "disk", 1, "Disk number")
+	f.IntVar(&dvdOpts.MinLength, "min-length", 20, "Min track length (minutes)")
+	f.IntVar(&dvdOpts.MaxLength, "max-length", 0, "Max track length (0 = disabled)")
+	f.StringVar(&dvdOpts.AudioCodec, "audio-codec", "aac", "Audio codec")
+	f.StringVar(&dvdOpts.VideoEncodingParams, "video-encoding-params", "-c:v h264_nvenc -preset p7 -rc vbr -cq 28", "FFmpeg video params")
+	f.IntVar(&dvdOpts.AudioTrack, "audio-track", -1, "Select single audio track for output")
+	f.StringVar(&dvdOpts.AudioLang, "default-audio-lang", "", "Set default audio track by language")
 
-	f.IntVar(&dvdOpts.VideoTrack, "video-track", dvdOpts.VideoTrack, "Select single video track for output")
-	f.StringVar(&dvdOpts.VideoLang, "default-video-lang", dvdOpts.VideoLang, "Set default video track by language")
-	f.IntVar(&dvdOpts.SubtitleTrack, "subtitle-track", dvdOpts.SubtitleTrack, "Select single subtitle track for output")
-	f.StringVar(&dvdOpts.SubtitleLang, "default-subtitle-lang", dvdOpts.SubtitleLang, "Set default subtitle track by language")
+	f.IntVar(&dvdOpts.VideoTrack, "video-track", -1, "Select single video track for output")
+	f.StringVar(&dvdOpts.VideoLang, "default-video-lang", "", "Set default video track by language")
+	f.IntVar(&dvdOpts.SubtitleTrack, "subtitle-track", -1, "Select single subtitle track for output")
+	f.StringVar(&dvdOpts.SubtitleLang, "default-subtitle-lang", "", "Set default subtitle track by language")
 
 	f.IntSliceVarP(&dvdOpts.Titles, "title", "t", nil, "Specific title(s) to rip")
-	f.BoolVar(&dvdOpts.NoAutoLength, "no-auto-lenght", dvdOpts.NoAutoLength, "Disable automatic track length detection")
+	f.BoolVar(&dvdOpts.NoAutoLength, "no-auto-lenght", false, "Disable automatic track length detection")
 
 }

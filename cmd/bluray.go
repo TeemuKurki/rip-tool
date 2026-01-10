@@ -2,18 +2,28 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 	"github.com/teemukurki/rip-tool/internal/bluray"
 	"github.com/teemukurki/rip-tool/internal/common"
+	"github.com/teemukurki/rip-tool/internal/utils"
 )
 
-var blurayOpts = common.DefaultOptions()
+var blurayOpts = common.Options{}
 
-// blurayCmd represents the bluray command
+func blurayPrecheck() []error {
+	var errors []error
+	errors = append(errors, utils.CheckCommandAvailable("bd_list_titles", "Run 'sudo apt install libbluray-bin'"))
+	errors = append(errors, utils.CheckCommandAvailable("bd_splice", "Run 'sudo apt install libbluray-bin'"))
+	errors = append(errors, utils.CheckCommandAvailable("ffmpeg", "Run 'sudo apt install ffmpeg'"))
+	return utils.RemoveNil(errors)
+}
+
 var blurayCmd = &cobra.Command{
 	Use:   "bluray <title>",
-	Short: "Rip DVD",
+	Short: "Rip Bluray",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -23,7 +33,7 @@ to quickly create a Cobra application.`,
 	Args: cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		title := args[0]
-		precheckErrors := dvdPrecheck()
+		precheckErrors := blurayPrecheck()
 		if len(precheckErrors) > 0 {
 			for _, err := range precheckErrors {
 				fmt.Println(err)
@@ -35,28 +45,37 @@ to quickly create a Cobra application.`,
 	},
 }
 
+func home() string {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return home
+}
+
 func init() {
 	rootCmd.AddCommand(blurayCmd)
 
 	f := blurayCmd.Flags()
 	f.BoolVar(&blurayOpts.Show, "show", false, "TV show mode")
-	f.StringVar(&blurayOpts.DiskPath, "disk-path", blurayOpts.DiskPath, "Disk path")
-	f.IntVar(&blurayOpts.Season, "season", blurayOpts.Season, "Season number")
-	f.IntVar(&blurayOpts.Disk, "disk", blurayOpts.Disk, "Disk number")
-	f.IntVar(&blurayOpts.MinLength, "min-length", blurayOpts.MinLength, "Min track length (minutes)")
-	f.IntVar(&blurayOpts.MaxLength, "max-length", blurayOpts.MaxLength, "Max track length (0 = disabled)")
-	f.StringVar(&blurayOpts.AudioCodec, "audio-codec", blurayOpts.AudioCodec, "Audio codec")
-	f.StringVar(&blurayOpts.VideoEncodingParams, "video-encoding-params", blurayOpts.VideoEncodingParams, "FFmpeg video params")
-	f.IntVar(&blurayOpts.AudioTrack, "audio-track", blurayOpts.AudioTrack, "Select single audio track for output")
-	f.StringVar(&blurayOpts.AudioLang, "default-audio-lang", blurayOpts.AudioLang, "Set default audio track by language")
+	f.StringVar(&blurayOpts.DiskPath, "disk-path", "/dev/sr0", "Disk path")
+	f.IntVar(&blurayOpts.Season, "season", 1, "Season number")
+	f.IntVar(&blurayOpts.Disk, "disk", 1, "Disk number")
+	f.IntVar(&blurayOpts.MinLength, "min-length", 20, "Min track length (minutes)")
+	f.IntVar(&blurayOpts.MaxLength, "max-length", 0, "Max track length (0 = disabled)")
+	f.StringVar(&blurayOpts.AudioCodec, "audio-codec", "aac", "Audio codec")
+	// Allow passing ffmpeg params as indivitual values for easier use
+	f.StringVar(&blurayOpts.VideoEncodingParams, "video-encoding-params", "-c:v h264_nvenc -preset p7 -rc vbr -cq 28", "FFmpeg video params")
+	f.IntVar(&blurayOpts.AudioTrack, "audio-track", -1, "Select single audio track for output")
+	f.StringVar(&blurayOpts.AudioLang, "default-audio-lang", "", "Set default audio track by language")
 
-	f.IntVar(&blurayOpts.VideoTrack, "video-track", blurayOpts.VideoTrack, "Select single video track for output")
-	f.StringVar(&blurayOpts.VideoLang, "default-video-lang", blurayOpts.VideoLang, "Set default video track by language")
-	f.IntVar(&blurayOpts.SubtitleTrack, "subtitle-track", blurayOpts.SubtitleTrack, "Select single subtitle track for output")
-	f.StringVar(&blurayOpts.SubtitleLang, "default-subtitle-lang", blurayOpts.SubtitleLang, "Set default subtitle track by language")
+	f.IntVar(&blurayOpts.VideoTrack, "video-track", -1, "Select single video track for output")
+	f.StringVar(&blurayOpts.VideoLang, "default-video-lang", "", "Set default video track by language")
+	f.IntVar(&blurayOpts.SubtitleTrack, "subtitle-track", -1, "Select single subtitle track for output")
+	f.StringVar(&blurayOpts.SubtitleLang, "default-subtitle-lang", "", "Set default subtitle track by language")
 
 	f.IntSliceVarP(&blurayOpts.Titles, "title", "t", nil, "Specific title(s) to rip")
-	f.BoolVar(&blurayOpts.NoAutoLength, "no-auto-lenght", blurayOpts.NoAutoLength, "Disable automatic track length detection")
+	f.BoolVar(&blurayOpts.NoAutoLength, "no-auto-lenght", false, "Disable automatic track length detection")
 
-	f.StringVar(&blurayOpts.KeyPath, "--key", blurayOpts.KeyPath, "Location of aacs KEYDB.cfg")
+	f.StringVar(&blurayOpts.KeyPath, "--key", filepath.Join(home(), ".config", "aacs", "KEYDB.cfg"), "Location of aacs KEYDB.cfg")
 }

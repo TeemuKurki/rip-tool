@@ -2,7 +2,6 @@ package bluray
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"path/filepath"
 	"slices"
@@ -49,14 +48,6 @@ func ripBluray(opts common.Options, title string, track BDTitle) error {
 		return err
 	}
 
-	stderrPipe, err := ffmpeg.StderrPipe()
-	if err != nil {
-		fmt.Println("Error with ffmpeg StderrPipe", err)
-
-		return err
-	}
-	tee := io.TeeReader(stderrPipe, os.Stderr) // Pass ffmpeg log/progress to terminal, also tee logs for subtitle/audio parsing
-
 	// Connect bdSplice pipe to ffmpeg stdin
 	langPassCmd.Stdin = bdSplicePipe
 	ffmpeg.Stdin = langPassPipe
@@ -80,12 +71,6 @@ func ripBluray(opts common.Options, title string, track BDTitle) error {
 	}
 	defer utils.TerminateProcess(ffmpeg, 5*time.Second)
 
-	streams, parseStreamErr := utils.ParseStreams(tee, os.Stdout)
-	if parseStreamErr != nil {
-		fmt.Println("Error with ParseStreams", parseStreamErr)
-		return err
-	}
-
 	bdSliceErr := bdSlice.Wait()
 	if bdSliceErr != nil {
 		fmt.Println("Error with bdSlice wait", bdSliceErr)
@@ -101,10 +86,6 @@ func ripBluray(opts common.Options, title string, track BDTitle) error {
 	if ffmpegWaitErr != nil {
 		fmt.Println("Error with ffmpeg wait", ffmpegWaitErr)
 	}
-
-	fmt.Println(streams)
-
-	// TODO: Add language metadatas
 
 	return nil
 }

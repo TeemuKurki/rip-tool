@@ -168,6 +168,13 @@ func RunDVD(opts common.Options, title string) error {
 		fmt.Println("Failed to get lsdvd data", err)
 	}
 
+	if title == "" {
+		title = lsdvd.Title
+	}
+	if title == "" {
+		return fmt.Errorf("Title expected but not found\n")
+	}
+
 	var tracks []Track
 	if lsdvd != nil {
 		tracks = lsdvd.Tracks
