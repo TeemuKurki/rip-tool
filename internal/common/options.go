@@ -12,11 +12,11 @@ type Options struct {
 	VideoEncodingParams string
 	MinLength           int
 	MaxLength           int
-	AudioTrack          int
+	AudioTrack          []int
 	AudioLang           string
-	VideoTrack          int
+	VideoTrack          []int
 	VideoLang           string
-	SubtitleTrack       int
+	SubtitleTrack       []int
 	SubtitleLang        string
 	NoAutoLength        bool
 	KeyPath             string

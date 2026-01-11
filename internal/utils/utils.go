@@ -24,6 +24,7 @@ func PathExists(path string) bool {
 	return false
 }
 
+// Verify that dependency is available on users machine
 func CheckCommandAvailable(command string, remedy string) error {
 	cmd := exec.Command("which", command)
 	response, err := cmd.CombinedOutput()

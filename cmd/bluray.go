@@ -66,12 +66,12 @@ func init() {
 	f.StringVar(&blurayOpts.AudioCodec, "audio-codec", "aac", "Audio codec")
 	// Allow passing ffmpeg params as indivitual values for easier use
 	f.StringVar(&blurayOpts.VideoEncodingParams, "video-encoding-params", "-c:v h264_nvenc -preset p7 -rc vbr -cq 28", "FFmpeg video params")
-	f.IntVar(&blurayOpts.AudioTrack, "audio-track", -1, "Select single audio track for output")
+	f.IntSliceVar(&blurayOpts.AudioTrack, "audio-track", nil, "Select audio tracks for output")
 	f.StringVar(&blurayOpts.AudioLang, "default-audio-lang", "", "Set default audio track by language")
 
-	f.IntVar(&blurayOpts.VideoTrack, "video-track", -1, "Select single video track for output")
+	f.IntSliceVar(&blurayOpts.VideoTrack, "video-track", nil, "Select video tracks for output")
 	f.StringVar(&blurayOpts.VideoLang, "default-video-lang", "", "Set default video track by language")
-	f.IntVar(&blurayOpts.SubtitleTrack, "subtitle-track", -1, "Select single subtitle track for output")
+	f.IntSliceVar(&blurayOpts.SubtitleTrack, "subtitle-track", nil, "Select subtitles track for output")
 	f.StringVar(&blurayOpts.SubtitleLang, "default-subtitle-lang", "", "Set default subtitle track by language")
 
 	f.IntSliceVarP(&blurayOpts.Titles, "title", "t", nil, "Specific title(s) to rip")

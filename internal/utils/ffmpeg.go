@@ -3,16 +3,23 @@ package utils
 import (
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/teemukurki/rip-tool/internal/common"
 )
 
-func handleTrackMap(track int) string {
-	if track == -1 {
-		return ""
+func handleTrackMap(tracks []int, trackType string) []string {
+	if tracks == nil {
+		return []string{
+			"-map", fmt.Sprintf("0:%s?", trackType),
+		}
 	}
-	return fmt.Sprintf(":%d", track)
+	var params []string
+	for _, track := range tracks {
+		params = append(params, "-map", fmt.Sprintf("0:%s:%d?", trackType, track))
+	}
+	return params
 }
 
 func genLangMetadata(langData []string, metaType string) []string {
@@ -43,24 +50,31 @@ func FFmpegLangMetaCmd(input string, subtitleLangs []string, audioLangs []string
 	return exec.Command("ffmpeg", args...)
 }
 
-func FFmpegCmd(opts common.Options, input string, out string, trackLenght float32) *exec.Cmd {
-
-	args := []string{
+func FFmpegCmd(opts common.Options, input string, out string, trackLenght float32, additionalParams []string) *exec.Cmd {
+	inputArgs := []string{
 		"-analyzeduration", "300000000",
 		"-probesize", "500M",
 		"-i", input,
-		"-map", fmt.Sprintf("0:a%s?", handleTrackMap(opts.AudioTrack)),
-		"-map", fmt.Sprintf("0:s%s?", handleTrackMap(opts.SubtitleTrack)),
-		"-map", fmt.Sprintf("0:v%s", handleTrackMap(opts.VideoTrack)),
+	}
+	outputArgs := []string{
 		"-c:a", opts.AudioCodec,
 		"-c:s", "copy",
-		out,
 	}
+	args := slices.Concat(
+		inputArgs,
+		additionalParams,
+		handleTrackMap(opts.AudioTrack, "a"),
+		handleTrackMap(opts.SubtitleTrack, "s"),
+		handleTrackMap(opts.VideoTrack, "v"),
+		outputArgs,
+	)
+
 	videoArgs := strings.Fields(opts.VideoEncodingParams)
 	args = append(args, videoArgs...)
 	if !opts.NoAutoLength {
 		args = append(args, "-to", fmt.Sprintf("%.2fs", trackLenght))
 	}
+	args = append(args, out)
 
 	fmt.Println("FFMPEG arguments ", args)
 	return exec.Command("ffmpeg", args...)

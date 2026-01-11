@@ -34,7 +34,8 @@ func ripBluray(opts common.Options, title string, track BDTitle) error {
 	bdSlice := BdSpliceCmd(opts, track)
 	langPassCmd := utils.FFmpegLangMetaCmd("-", track.PGLang, track.AudioLang)
 
-	ffmpeg := utils.FFmpegCmd(opts, "-", outputPath, float32(track.Duration))
+	var additionalParams []string
+	ffmpeg := utils.FFmpegCmd(opts, "-", outputPath, float32(track.Duration), additionalParams)
 
 	// Create pipe to stream bdSplice output to ffmpeg
 	bdSplicePipe, err := bdSlice.StdoutPipe()
@@ -99,7 +100,8 @@ func RunBluray(opts common.Options, title string) error {
 	if len(opts.Titles) > 0 {
 		for _, trackTitle := range opts.Titles {
 			trackI := slices.IndexFunc(tracks, func(t BDTitle) bool {
-				return t.Index == trackTitle
+				// Titles start from zero, Indexes start from 1
+				return t.Index == trackTitle+1
 			})
 			if trackI > -1 {
 				fmt.Printf("Ripping title %d\n", trackTitle)

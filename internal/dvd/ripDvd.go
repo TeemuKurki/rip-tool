@@ -77,15 +77,41 @@ func update_track_lang(opts common.Options, videoFilePath string, subtitleInfos 
 	}
 }
 
-func ripDVD(opts common.Options, trackId int, title string, subtitleInfo []Subp, audioInfo []Audio, trackLength float32) error {
-	tmpDir, _ := os.MkdirTemp("", "rip-stream")
-	defer os.RemoveAll(tmpDir)
-
+func createTmpFifo() (string, string, error) {
+	tmpDir, err := os.MkdirTemp("", "rip-stream")
+	if err != nil {
+		return tmpDir, "", err
+	}
 	fifo := filepath.Join(tmpDir, "stream.fifo")
 	if err := syscall.Mkfifo(fifo, 0600); err != nil {
+		return tmpDir, fifo, err
+	}
+	return tmpDir, fifo, nil
+}
+
+func generateChapterMeta(chapters []Chapter) []byte {
+	result := ";FFMETADATA1\n\n"
+	var endTime int = 0
+	var startTime int = 0
+	for _, chapter := range chapters {
+		startTime = endTime
+		endTime += int(chapter.Length * 1000)
+		result += "[CHAPTER]\n"
+		result += "TIMEBASE=1/1000\n" // In milliseconds
+		result += fmt.Sprintf("START=%d\n", startTime)
+		result += fmt.Sprintf("END=%d\n", endTime)
+		result += fmt.Sprintf("title=Chapter \\#%d\n", chapter.Index)
+		result += "\n"
+	}
+	return []byte(result)
+}
+
+func ripDVD(opts common.Options, trackId int, title string, subtitleInfo []Subp, audioInfo []Audio, trackLength float32, chapters []Chapter) error {
+	tmpDir, fifo, err := createTmpFifo()
+	if err != nil {
 		return fmt.Errorf("mkfifo failed: %w", err)
 	}
-
+	defer os.RemoveAll(tmpDir)
 	outputDirPath := utils.OutputPath(opts.Show, title, opts.Season)
 
 	utils.CreateDir(outputDirPath)
@@ -106,14 +132,19 @@ func ripDVD(opts common.Options, trackId int, title string, subtitleInfo []Subp,
 
 	mpv.Stderr = os.Stderr // Pass mpv log/progress to terminal
 
-	ffmpeg := utils.FFmpegCmd(opts, fifo, outputPath, trackLength)
+	additionalParams := []string{"-i", "pipe:0", "-map_metadata", "1"}
+
+	ffmpeg := utils.FFmpegCmd(opts, fifo, outputPath, trackLength, additionalParams)
 
 	stderrPipe, err := ffmpeg.StderrPipe()
+	stdinPipe, _ := ffmpeg.StdinPipe()
 	if err != nil {
 		fmt.Println("Error with ffmpeg StderrPipe", err)
-
 		return err
 	}
+
+	stdinPipe.Write(generateChapterMeta(chapters))
+	stdinPipe.Close()
 	tee := io.TeeReader(stderrPipe, os.Stderr) // Pass ffmpeg log/progress to terminal, also tee logs for subtitle/audio parsing
 
 	if err := mpv.Start(); err != nil {
@@ -183,13 +214,14 @@ func RunDVD(opts common.Options, title string) error {
 	if len(opts.Titles) > 0 {
 		for _, track := range opts.Titles {
 			trackI := slices.IndexFunc(tracks, func(t Track) bool {
-				return t.Index == track
+				// Titles start from zero, Indexes start from 1
+				return t.Index == track+1
 			})
 			if trackI > -1 {
 				fmt.Printf("Ripping title %d\n", track)
 				fmt.Printf("%+v\n", opts)
 				track := tracks[trackI]
-				ripDVD(opts, track.Index-1, title, track.Subps, track.Audio, track.Length)
+				ripDVD(opts, track.Index-1, title, track.Subps, track.Audio, track.Length, track.Chapter)
 			}
 
 		}
@@ -198,7 +230,7 @@ func RunDVD(opts common.Options, title string) error {
 		for _, track := range tracks {
 			if toMinutes(track.Length) >= float32(opts.MinLength) && (opts.MaxLength == 0 || toMinutes(track.Length) <= float32(opts.MaxLength)) {
 				fmt.Printf("%+v\n", opts)
-				ripDVD(opts, track.Index-1, title, track.Subps, track.Audio, track.Length)
+				ripDVD(opts, track.Index-1, title, track.Subps, track.Audio, track.Length, track.Chapter)
 			}
 		}
 	}

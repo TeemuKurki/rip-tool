@@ -55,12 +55,12 @@ func init() {
 	f.IntVar(&dvdOpts.MaxLength, "max-length", 0, "Max track length (0 = disabled)")
 	f.StringVar(&dvdOpts.AudioCodec, "audio-codec", "aac", "Audio codec")
 	f.StringVar(&dvdOpts.VideoEncodingParams, "video-encoding-params", "-c:v h264_nvenc -preset p7 -rc vbr -cq 28", "FFmpeg video params")
-	f.IntVar(&dvdOpts.AudioTrack, "audio-track", -1, "Select single audio track for output")
+	f.IntSliceVar(&dvdOpts.AudioTrack, "audio-track", nil, "Select audio tracks for output")
 	f.StringVar(&dvdOpts.AudioLang, "default-audio-lang", "", "Set default audio track by language")
 
-	f.IntVar(&dvdOpts.VideoTrack, "video-track", -1, "Select single video track for output")
+	f.IntSliceVar(&dvdOpts.VideoTrack, "video-track", nil, "Select video tracks for output")
 	f.StringVar(&dvdOpts.VideoLang, "default-video-lang", "", "Set default video track by language")
-	f.IntVar(&dvdOpts.SubtitleTrack, "subtitle-track", -1, "Select single subtitle track for output")
+	f.IntSliceVar(&dvdOpts.SubtitleTrack, "subtitle-track", nil, "Select subtitle tracks for output")
 	f.StringVar(&dvdOpts.SubtitleLang, "default-subtitle-lang", "", "Set default subtitle track by language")
 
 	f.IntSliceVarP(&dvdOpts.Titles, "title", "t", nil, "Specific title(s) to rip")
