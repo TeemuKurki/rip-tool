@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/teemukurki/rip-tool/internal/bluray/chapters"
 	"github.com/teemukurki/rip-tool/internal/common"
 	"github.com/teemukurki/rip-tool/internal/utils"
 )
@@ -22,7 +23,28 @@ type MatchLanguageTrack struct {
 	StreamIndex int
 }
 
-func ripBluray(opts common.Options, title string, track BDTitle) error {
+func generateChapterMeta(c chapters.Chapter) []byte {
+	result := ";FFMETADATA1\n\n"
+	var endTime int = 0
+	var startTime int = 0
+
+	var chapters = c.Chapters
+
+	for _, chapter := range chapters {
+		startTime = endTime
+		endTime += chapter.Duration
+
+		result += "[CHAPTER]\n"
+		result += "TIMEBASE=1/100000\n"
+		result += fmt.Sprintf("START=%d\n", startTime)
+		result += fmt.Sprintf("END=%d\n", endTime)
+		result += fmt.Sprintf("title=Chapter \\#%d\n", chapter.ID)
+		result += "\n"
+	}
+	return []byte(result)
+}
+
+func ripBluray(opts common.Options, title string, track BDTitle, chapters []chapters.Chapter) error {
 	outputDirPath := utils.OutputPath(opts.Show, title, opts.Season)
 	utils.CreateDir(outputDirPath)
 	outputPath := filepath.Join(outputDirPath, fmt.Sprintf("%s-D%s-t%s.mkv", title, strconv.Itoa(opts.Disk), strconv.Itoa(track.Index)))
@@ -34,8 +56,19 @@ func ripBluray(opts common.Options, title string, track BDTitle) error {
 	bdSlice := BdSpliceCmd(opts, track)
 	langPassCmd := utils.FFmpegLangMetaCmd("-", track.PGLang, track.AudioLang)
 
-	var additionalParams []string
-	ffmpeg := utils.FFmpegCmd(opts, "-", outputPath, float32(track.Duration), additionalParams)
+	r1, w1, err := os.Pipe()
+	if err != nil {
+		fmt.Println("Error with os.Pipe", err)
+		return err
+	}
+	defer r1.Close()
+
+	// Prepare chapter information input pipeing
+	additionalParams := []string{"-i", "pipe:3", "-map_metadata", "1"}
+	ffmpeg := utils.FFmpegCmd(opts, "pipe:0", outputPath, float32(track.Duration), additionalParams)
+
+	// Pipe chapter metadata into "pipe:3" input
+	ffmpeg.ExtraFiles = []*os.File{r1}
 
 	// Create pipe to stream bdSplice output to ffmpeg
 	bdSplicePipe, err := bdSlice.StdoutPipe()
@@ -49,7 +82,7 @@ func ripBluray(opts common.Options, title string, track BDTitle) error {
 		return err
 	}
 
-	// Connect bdSplice pipe to ffmpeg stdin
+	// Pipe outputs. bdSplice -> langPass -> ffmpeg
 	langPassCmd.Stdin = bdSplicePipe
 	ffmpeg.Stdin = langPassPipe
 	ffmpeg.Stderr = os.Stderr
@@ -71,6 +104,16 @@ func ripBluray(opts common.Options, title string, track BDTitle) error {
 		return err
 	}
 	defer utils.TerminateProcess(ffmpeg, 5*time.Second)
+
+	// Write to chapter pipe in goroutine after starting ffmpeg cmd
+	chapter := chapters[track.Index-1]
+	go func() {
+		defer w1.Close() // Close after writing to signal EOF
+		_, err := w1.Write(generateChapterMeta(chapter))
+		if err != nil {
+			fmt.Println("Error writing chapter metadata:", err)
+		}
+	}()
 
 	bdSliceErr := bdSlice.Wait()
 	if bdSliceErr != nil {
@@ -96,6 +139,10 @@ func RunBluray(opts common.Options, title string) error {
 	if err != nil {
 		fmt.Println("Failed to get db_list_titles data", err)
 	}
+	chapters, err := chapters.GetChapters()
+	if err != nil {
+		fmt.Println("Failed to get dchapter_list_titles data", err)
+	}
 
 	if len(opts.Titles) > 0 {
 		for _, trackTitle := range opts.Titles {
@@ -108,7 +155,7 @@ func RunBluray(opts common.Options, title string) error {
 				fmt.Printf("%+v\n", opts)
 				track := tracks[trackI]
 				fmt.Printf("%+v\n", track)
-				ripBluray(opts, title, track)
+				ripBluray(opts, title, track, chapters)
 			}
 
 		}
@@ -116,7 +163,7 @@ func RunBluray(opts common.Options, title string) error {
 		for _, track := range tracks {
 			if toMinutes(float32(track.Duration)) >= float32(opts.MinLength) && (opts.MaxLength == 0 || toMinutes(float32(track.Duration)) <= float32(opts.MaxLength)) {
 				fmt.Printf("%+v\n", track)
-				ripBluray(opts, title, track)
+				ripBluray(opts, title, track, chapters)
 			}
 		}
 	}
