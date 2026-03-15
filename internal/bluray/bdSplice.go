@@ -15,12 +15,16 @@ func chapterRange(chapters int) string {
 }
 
 func BdSpliceCmd(opts common.Options, track BDTitle) *exec.Cmd {
-	cmd := exec.Command(
-		"bd_splice",
+	args := []string{
 		"-t", fmt.Sprintf("%d", track.Index),
 		"-c", chapterRange(track.Chapters),
 		"-k", opts.KeyPath,
 		opts.DiskPath,
+	}
+	cmd := exec.Command(
+		"bd_splice",
+		args...,
 	)
+	fmt.Println(args)
 	return cmd
 }

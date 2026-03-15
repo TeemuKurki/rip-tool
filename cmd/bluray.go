@@ -77,5 +77,5 @@ func init() {
 	f.IntSliceVarP(&blurayOpts.Titles, "title", "t", nil, "Specific title(s) to rip")
 	f.BoolVar(&blurayOpts.NoAutoLength, "no-auto-lenght", false, "Disable automatic track length detection")
 
-	f.StringVar(&blurayOpts.KeyPath, "--key", filepath.Join(home(), ".config", "aacs", "KEYDB.cfg"), "Location of aacs KEYDB.cfg")
+	f.StringVar(&blurayOpts.KeyPath, "key", filepath.Join(home(), ".config", "aacs", "KEYDB.cfg"), "Location of aacs KEYDB.cfg")
 }
